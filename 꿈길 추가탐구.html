@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>유튜브 노래 추천</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background: url('https://cdn.pixabay.com/photo/2015/09/18/03/34/film-camera-945004_1280.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      position: relative;
+      transition: background-image 0.8s ease-in-out;
+    }
+    body::before {
+      content:"";
+      position: fixed;
+      top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.45);
+      z-index:-1;
+      pointer-events:none;
+    }
+    h1 { margin-top:30px; text-shadow:0 0 8px rgba(0,0,0,0.6); }
+    button {
+      background: #ffffff22;
+      border:none;
+      border-radius:10px;
+      padding:10px 20px;
+      margin:5px;
+      color:white;
+      font-size:16px;
+      cursor:pointer;
+      transition:0.3s;
+    }
+    button:hover { background: #ffffff55; }
+
+    #videos {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:20px;
+    }
+    .song {
+      flex: 1 1 22%;
+      max-width: 270px;
+      margin:10px;
+      background: rgba(255,255,255,0.1);
+      border-radius:10px;
+      padding:10px;
+      backdrop-filter:blur(6px);
+      box-shadow:0 2px 8px rgba(0,0,0,0.3);
+    }
+    #videos img {
+      width:100%;
+      border-radius:10px;
+      cursor:pointer;
+      transition:0.3s;
+      box-shadow:0 4px 10px rgba(0,0,0,0.4);
+    }
+    #videos img:hover { transform: scale(1.05); }
+    p { text-shadow:0 0 5px rgba(0,0,0,0.7); margin:10px 0 0 0; }
+    .message { width:100%; text-align:center; margin-top:20px; font-size:18px; }
+    @media(max-width:800px){ .song { flex:1 1 45%; } }
+    @media(max-width:500px){ .song { flex:1 1 90%; } }
+  </style>
+</head>
+<body>
+  <h1>유튜브 노래 추천</h1>
+
+  <div id="genres">
+    <button onclick="selectGenre('KPOP')">K-POP</button>
+    <button onclick="selectGenre('JPOP')">J-POP</button>
+    <button onclick="selectGenre('POP')">POP</button>
+    <button onclick="selectGenre('RNB')">R&B</button>
+    <button onclick="showSaved()">저장한 노래</button>
+  </div>
+
+  <div id="kpopSub" style="display:none;">
+    <button onclick="searchSongs('Kpop 청량')">청량</button>
+    <button onclick="searchSongs('Kpop 강렬')">강렬</button>
+    <button onclick="searchSongs('Kpop 감성')">감성</button>
+  </div>
+
+  <div id="videos"></div>
+
+<script>
+const API_KEY = "AIzaSyBL19KGirLHl8JdD2VSpDZIEohLCw7qDTM"; // 본인 키 입력
+let lastQuery = "";
+
+// 배경 이미지
+const backgrounds = {
+  "Kpop 청량": "https://cdn.pixabay.com/photo/2016/11/23/13/48/beach-1852945_1280.jpg",
+  "Kpop 강렬": "https://cdn.pixabay.com/photo/2025/10/05/14/03/end-time-events-9875006_1280.jpg",
+  "Kpop 감성": "https://cdn.pixabay.com/photo/2019/02/22/13/07/cafe-4013502_1280.jpg",
+  "JPOP": "https://cdn.pixabay.com/photo/2020/01/15/19/05/shibuyasky-4768679_1280.jpg",
+  "POP": "https://cdn.pixabay.com/photo/2023/03/12/22/31/city-7847987_1280.jpg",
+  "RNB": "https://cdn.pixabay.com/photo/2025/08/23/03/17/night-sky-9791185_1280.jpg",
+  "default": "https://cdn.pixabay.com/photo/2015/09/18/03/34/film-camera-945004_1280.jpg"
+};
+
+function setBackground(key) {
+  const img = backgrounds[key] || backgrounds.default;
+  document.body.style.backgroundImage = `url('${img}')`;
+}
+
+function selectGenre(genre){
+  document.getElementById("videos").innerHTML="";
+  if(genre==="KPOP") {
+    document.getElementById("kpopSub").style.display="block";
+  } else {
+    document.getElementById("kpopSub").style.display="none";
+    setBackground(genre);
+    if(genre==="POP") searchSongs("POP 해외");
+    else if(genre==="RNB") searchSongs("R B 인디");
+    else searchSongs(genre);
+  }
+}
+
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function searchSongs(query){
+  lastQuery = query;
+  if(query.startsWith("Kpop")) setBackground(query);
+
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(query)} 뮤직비디오&key=${API_KEY}`;
+
+  fetch(url)
+  .then(res=>res.json())
+  .then(data=>{
+    const container = document.getElementById("videos");
+    container.innerHTML="";
+
+    if(!data.items || data.items.length===0){
+      container.innerHTML=`<div class="message">결과가 없습니다</div>`;
+      return;
+    }
+
+    const items = shuffleArray(data.items);
+
+    items.forEach(item=>{
+      const videoId = item.id.videoId;
+      const title = item.snippet.title.replace(/'/g,"\\'");
+      const thumbnail = item.snippet.thumbnails.medium.url;
+
+      container.innerHTML += `
+      <div class="song">
+        <img src="${thumbnail}" onclick="window.open('https://www.youtube.com/watch?v=${videoId}','_blank')">
+        <p>${title}</p>
+        <button onclick="saveSong('${videoId}','${title}','${thumbnail}')">❤️저장</button>
+      </div>`;
+    });
+
+    container.innerHTML += `<div style="width:100%; margin-top:20px;">
+      <button onclick="searchSongs('${query}')">🎲 다른 추천 받기</button>
+    </div>`;
+  })
+  .catch(err=>{
+    console.error(err);
+    document.getElementById("videos").innerHTML = `<div class="message">데이터를 불러오는 중 오류가 발생했습니다</div>`;
+  });
+}
+
+function saveSong(id,title,thumbnail){
+  const saved = JSON.parse(localStorage.getItem("savedSongs")) || [];
+  if(saved.some(s=>s.id===id)){ alert("이미 저장된 노래입니다"); return; }
+  saved.push({id,title,thumbnail});
+  localStorage.setItem("savedSongs",JSON.stringify(saved));
+  alert("노래가 저장되었습니다❤️");
+}
+
+// ✅ 수정된 showSaved()
+function showSaved(){
+  const saved = JSON.parse(localStorage.getItem("savedSongs")) || [];
+  const container = document.getElementById("videos");
+  document.getElementById("kpopSub").style.display="none";
+  setBackground("default");
+
+  // 제목 + 전용 목록 컨테이너
+  container.innerHTML = `
+    <div style="width:100%; text-align:center; margin-bottom:20px;">
+      <h2 style="margin-bottom:20px;">❤️ 저장한 노래</h2>
+    </div>
+    <div id="savedList" style="display:flex; flex-wrap:wrap; justify-content:center;"></div>
+  `;
+
+  const list = document.getElementById("savedList");
+
+  if(saved.length===0){
+    list.innerHTML = `<div class="message">저장된 노래가 없습니다</div>`;
+    return;
+  }
+
+  saved.forEach(song=>{
+    list.innerHTML += `
+    <div class="song">
+      <img src="${song.thumbnail}" onclick="window.open('https://www.youtube.com/watch?v=${song.id}','_blank')">
+      <p>${song.title}</p>
+      <button onclick="removeSong('${song.id}')">🗑️ 삭제</button>
+    </div>`;
+  });
+}
+
+function removeSong(id){
+  let saved = JSON.parse(localStorage.getItem("savedSongs")) || [];
+  saved = saved.filter(s=>s.id!==id);
+  localStorage.setItem("savedSongs",JSON.stringify(saved));
+  showSaved();
+}
+</script>
+</body>
+</html>
